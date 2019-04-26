@@ -14,19 +14,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
-//Status root object
-type Status struct {
-	data []map[string]string
-}
-
-//StatusHistory structure
-type StatusHistory struct {
-	trackingProcess string
-	stationCode     string
-	pieces          int
-	weight          int
-	actualTime      string
-	flight          string
+//TrackStatus root object
+type TrackStatus struct {
+	Status string              `json:"status"`
+	Data   []map[string]string `json:"data"`
 }
 
 func homePage(w http.ResponseWriter, r *http.Request) {
@@ -73,66 +64,46 @@ func getDetails(turkishCargoURL string, w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		log.Fatal(err)
 	}
-	// if doc.Contains(table) {
-	// 	fmt.Println("Could not find any record")
-	// }
-	doc.Find("table").Each(func(index int, tabelHtml *goquery.Selection) {
-
-		if index == 2 {
-			tabelHtml.Find("th").Each(func(indexth int, tableheading *goquery.Selection) {
-				headings = append(headings, strings.ToLower(tableheading.Text()))
-			})
-
-			tabelHtml.Find("tr").Each(func(indexth int, rowData *goquery.Selection) {
-				if indexth > 0 {
-					//var dataRow []StatusHistory
-					//var dataRow []map[string]string
-					dataRow := make(map[string]string)
-					//var dataRow = make([]map[string]string, 0)
-					for j := 0; j < rowData.Children().Length(); j++ {
-						dataRow[headings[j]] = rowData.Children().Eq(j).Text()
-					}
-					finalData = append(finalData, dataRow)
-				}
-
-				//headings = append(headings, strings.ToLower(tableheading.Text()))
-			})
-			//fmt.Println(finalData)
-			// m := Status{finalData}
-			// b, err := json.Marshal(m)
-			// if err != nil {
-			// 	log.Fatal(err)
-			// }
-
-			// tabelHtml.Find("tr").Each(func(indextr int, rowhtml *goquery.Selection) {
-			// 	// fmt.Println(rowhtml.Children().Eq(0).Text())
-			// 	// rowhtml.Find("th").Each(func(indexth int, tableheading *goquery.Selection) {
-			// 	// 	headings = append(headings, strings.ToLower(tableheading.Text()))
-			// 	// })
-			// 	rowhtml.Find("td").Each(func(indexth int, tablecell *goquery.Selection) {
-			// 		fmt.Println(tablecell.Children().Text())
-			// 		//fmt.Println(tablecell.Eq(indexth).Text())
-			// 		// close := tablecell.Closest("tr").Text()
-			// 		// //fmt.Println(close.Text())
-			// 		// statusHistory[close] = append(statusHistory["close"], StatusHistory.)
-			// 		// fmt.Println(statusHistory)
-			// 		row = append(row, tablecell.Text())
-			// 		//statusHistory['asd']
-			// 	})
-			// 	rows = append(rows, row)
-			// 	row = nil
-			// })
-
+	if doc.Find("table").Length() <= 0 {
+		fmt.Println("Error")
+		m := TrackStatus{"error", finalData}
+		b, err := json.Marshal(m)
+		if err != nil {
+			log.Fatal(err)
 		}
-	})
+		w.Header().Set("Content-type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	} else {
+		doc.Find("table").Each(func(index int, tabelHtml *goquery.Selection) {
 
-	//fmt.Println("####### rows = ", len(rows), rows)
-	m := Status{finalData}
-	b, err := json.Marshal(m)
-	if err != nil {
-		log.Fatal(err)
+			if index == 2 {
+				tabelHtml.Find("th").Each(func(indexth int, tableheading *goquery.Selection) {
+					headings = append(headings, strings.ToLower(tableheading.Text()))
+				})
+
+				tabelHtml.Find("tr").Each(func(indexth int, rowData *goquery.Selection) {
+					if indexth > 0 {
+						dataRow := make(map[string]string)
+						for j := 0; j < rowData.Children().Length(); j++ {
+							dataRow[headings[j]] = rowData.Children().Eq(j).Text()
+						}
+						finalData = append(finalData, dataRow)
+					}
+
+				})
+				m := TrackStatus{"success", finalData}
+
+				b, err := json.Marshal(m)
+				if err != nil {
+					log.Fatal(err)
+				}
+				w.Header().Set("Content-type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				w.Write(b)
+			}
+		})
+
 	}
-	w.Header().Set("Content-type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(b)
+
 }
