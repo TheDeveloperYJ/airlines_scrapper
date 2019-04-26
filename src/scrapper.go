@@ -1,7 +1,7 @@
-// make_http_request_with_timeout.go
-//235-31634525
+//awbNumber :235-31634525 for reference
 package main
 
+//all imports required
 import (
 	"encoding/json"
 	"fmt"
@@ -20,11 +20,13 @@ type TrackStatus struct {
 	Data   []map[string]string `json:"data"`
 }
 
+//homepage handler
 func homePage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to the HomePage!")
 	fmt.Println("Endpoint Hit: homePage")
 }
 
+//hits Turkish cargo url and gets the data
 func getStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	awbNumber := vars["awbNumber"]
@@ -33,19 +35,22 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 
 }
 
+//All the requests handler using mux package
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/", homePage)
 	myRouter.HandleFunc("/{awbNumber}", getStatus)
 
-	log.Fatal(http.ListenAndServe(":8000", myRouter))
+	log.Fatal(http.ListenAndServe(":8080", myRouter))
 }
 
+// main function declaration
 func main() {
 	fmt.Println("Server started...")
 	handleRequests()
 }
 
+//actual function that gets details from the page
 func getDetails(turkishCargoURL string, w http.ResponseWriter, r *http.Request) {
 	var headings []string
 	var finalData []map[string]string
@@ -64,6 +69,7 @@ func getDetails(turkishCargoURL string, w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	if doc.Find("table").Length() <= 0 {
 		fmt.Println("Error")
 		m := TrackStatus{"error", finalData}
