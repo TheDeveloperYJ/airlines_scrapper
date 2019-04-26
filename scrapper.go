@@ -3,10 +3,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -16,11 +16,7 @@ import (
 
 //Status root object
 type Status struct {
-	StatusHistory []struct {
-		Flight string `json:"flight,omitempty"`
-		Status string `json:"status"`
-		Awb    string `json:"awb,omitempty"`
-	} `json:"statusHistory"`
+	data []map[string]string
 }
 
 //StatusHistory structure
@@ -41,9 +37,9 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 func getStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	awbNumber := vars["awbNumber"]
-	fmt.Fprintf(w, "Key: "+awbNumber)
 	turkishCargoURL := fmt.Sprintf("%s%s", "https://www.turkishcargo.com.tr/en/online-services/shipment-tracking?quick=True&awbInput=", awbNumber)
-	getDetails(turkishCargoURL)
+	getDetails(turkishCargoURL, w, r)
+
 }
 
 func handleRequests() {
@@ -59,12 +55,10 @@ func main() {
 	handleRequests()
 }
 
-func getDetails(turkishCargoURL string) {
-	//var data []string
-	var rowData []StatusHistory
+func getDetails(turkishCargoURL string, w http.ResponseWriter, r *http.Request) {
 	var headings []string
-	var row []string
-	var rows [][]string
+	var finalData []map[string]string
+
 	client := &http.Client{
 		Timeout: 300 * time.Second,
 	}
@@ -85,28 +79,60 @@ func getDetails(turkishCargoURL string) {
 	doc.Find("table").Each(func(index int, tabelHtml *goquery.Selection) {
 
 		if index == 2 {
-			tabelHtml.Find("tr").Each(func(indextr int, rowhtml *goquery.Selection) {
-				fmt.Println(rowhtml.Children().Eq(0).Text())
-				rowhtml.Find("th").Each(func(indexth int, tableheading *goquery.Selection) {
-					headings = append(headings, strings.ToLower(tableheading.Text()))
-				})
-				rowhtml.Find("td").Each(func(indexth int, tablecell *goquery.Selection) {
-					fmt.Println(tablecell.Children().Text())
-					//fmt.Println(tablecell.Eq(indexth).Text())
-					// close := tablecell.Closest("tr").Text()
-					// //fmt.Println(close.Text())
-					// statusHistory[close] = append(statusHistory["close"], StatusHistory.)
-					// fmt.Println(statusHistory)
-					row = append(row, tablecell.Text())
-					//statusHistory['asd']
-				})
-				rows = append(rows, row)
-				row = nil
+			tabelHtml.Find("th").Each(func(indexth int, tableheading *goquery.Selection) {
+				headings = append(headings, strings.ToLower(tableheading.Text()))
 			})
+
+			tabelHtml.Find("tr").Each(func(indexth int, rowData *goquery.Selection) {
+				if indexth > 0 {
+					//var dataRow []StatusHistory
+					//var dataRow []map[string]string
+					dataRow := make(map[string]string)
+					//var dataRow = make([]map[string]string, 0)
+					for j := 0; j < rowData.Children().Length(); j++ {
+						dataRow[headings[j]] = rowData.Children().Eq(j).Text()
+					}
+					finalData = append(finalData, dataRow)
+				}
+
+				//headings = append(headings, strings.ToLower(tableheading.Text()))
+			})
+			//fmt.Println(finalData)
+			// m := Status{finalData}
+			// b, err := json.Marshal(m)
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
+
+			// tabelHtml.Find("tr").Each(func(indextr int, rowhtml *goquery.Selection) {
+			// 	// fmt.Println(rowhtml.Children().Eq(0).Text())
+			// 	// rowhtml.Find("th").Each(func(indexth int, tableheading *goquery.Selection) {
+			// 	// 	headings = append(headings, strings.ToLower(tableheading.Text()))
+			// 	// })
+			// 	rowhtml.Find("td").Each(func(indexth int, tablecell *goquery.Selection) {
+			// 		fmt.Println(tablecell.Children().Text())
+			// 		//fmt.Println(tablecell.Eq(indexth).Text())
+			// 		// close := tablecell.Closest("tr").Text()
+			// 		// //fmt.Println(close.Text())
+			// 		// statusHistory[close] = append(statusHistory["close"], StatusHistory.)
+			// 		// fmt.Println(statusHistory)
+			// 		row = append(row, tablecell.Text())
+			// 		//statusHistory['asd']
+			// 	})
+			// 	rows = append(rows, row)
+			// 	row = nil
+			// })
 
 		}
 	})
 
 	//fmt.Println("####### rows = ", len(rows), rows)
-	os.Exit(1)
+	m := Status{finalData}
+	b, err := json.Marshal(m)
+	if err != nil {
+		log.Fatal(err)
+	}
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(b)
 }
